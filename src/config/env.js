@@ -10,14 +10,13 @@ const required = [
   "CLOUDINARY_API_SECRET",
 ];
 
-// Startup pe hi missing env vars pakad lo, runtime crash se better
 required.forEach((key) => {
   if (!process.env[key]) {
     console.error(`❌ Missing required env variable: ${key}`);
     process.exit(1);
   }
 });
-
+console.log(process.env.MONGO_URI);
 export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: process.env.PORT || 3001,
