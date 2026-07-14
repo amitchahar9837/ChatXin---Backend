@@ -34,13 +34,17 @@ export const initSocket = (httpServer) => {
 
     // ----------video call signaling events ----------------
     socket.on("call-user", ({ toUserId, offer, fromUserId, callerInfo }) => {
-      const receiverSocketId = getReceiverSocketId(toUserId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("incoming-call", {
+      console.log("Backend: call-user from", fromUserId, "to", toUserId);
+      const targetSocketId = userSocketMap[toUserId]; // ya jo bhi aapka mapping hai
+      console.log("Target socket id:", targetSocketId);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("incoming-call", {
           fromUserId,
           offer,
           callerInfo,
         });
+      } else {
+        console.log("⚠️ Target user not found in socket map");
       }
     });
 
