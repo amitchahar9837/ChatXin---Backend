@@ -19,7 +19,6 @@ export const setAuthCookies = (res, userId) => {
   const refreshToken = generateRefreshToken(userId);
 
   const isProd = env.NODE_ENV === "production";
-  console.log(isProd);
 
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
@@ -39,6 +38,17 @@ export const setAuthCookies = (res, userId) => {
 };
 
 export const clearAuthCookies = (res) => {
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+  });
+
+  res.clearCookie("refreshToken", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+  });
 };
