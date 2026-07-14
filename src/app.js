@@ -12,6 +12,7 @@ import messageRoutes from "./routes/message.routes.js";
 import searchRoutes from "./routes/search.routes.js";
 
 const app = express();
+app.set("trust proxy", 1);
 
 app.use(
   cors({
