@@ -38,6 +38,8 @@ export const setAuthCookies = (res, userId) => {
 };
 
 export const clearAuthCookies = (res) => {
+  const isProd = env.NODE_ENV === "production";
+
   res.clearCookie("accessToken", {
     httpOnly: true,
     secure: isProd,
