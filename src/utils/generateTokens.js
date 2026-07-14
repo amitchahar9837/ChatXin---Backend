@@ -19,6 +19,7 @@ export const setAuthCookies = (res, userId) => {
   const refreshToken = generateRefreshToken(userId);
 
   const isProd = env.NODE_ENV === "production";
+  console.log(isProd);
 
   res.cookie("accessToken", accessToken, {
     httpOnly: true,
