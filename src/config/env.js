@@ -16,7 +16,6 @@ required.forEach((key) => {
     process.exit(1);
   }
 });
-console.log(process.env.MONGO_URI);
 export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   PORT: process.env.PORT || 3001,
@@ -31,4 +30,7 @@ export const env = {
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+
+  METERED_DOMAIN: process.env.METERED_DOMAIN,
+  METERED_SECRET_KEY: process.env.METERED_SECRET_KEY,
 };

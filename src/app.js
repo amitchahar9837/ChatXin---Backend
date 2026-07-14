@@ -10,6 +10,7 @@ import { apiLimiter } from "./middleware/rateLimiter.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import messageRoutes from "./routes/message.routes.js";
 import searchRoutes from "./routes/search.routes.js";
+import { getTurnCredentials } from "./controllers/turn.controller.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -25,6 +26,7 @@ app.use(cookieParser());
 app.use("/api", apiLimiter);
 
 app.get("/api/health", (req, res) => res.status(200).json({ status: "ok" }));
+app.get("/api/turn-credentials", getTurnCredentials);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/message", messageRoutes);
