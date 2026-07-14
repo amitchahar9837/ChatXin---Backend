@@ -28,8 +28,10 @@ export const initSocket = (httpServer) => {
     });
 
     socket.on("disconnect", () => {
-      if (userId) userSocketMap.delete(userId);
-      io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
+      if (userId && userSocketMap.get(userId) === socket.id) {
+        userSocketMap.delete(userId);
+        io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
+      }
     });
 
     // ----------video call signaling events ----------------
