@@ -117,6 +117,7 @@ export const getMessages = asyncHandler(async (req, res) => {
 // ── Naya message bhejo ──
 export const sendMessage = asyncHandler(async (req, res) => {
   const { text, image } = req.body;
+  console.log(image);
   const { id: receiverId } = req.params;
   const senderId = req.user._id;
 
