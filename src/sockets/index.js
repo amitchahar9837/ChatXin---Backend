@@ -72,6 +72,12 @@ export const initSocket = (httpServer) => {
         io.to(receiverSocketId).emit("call-accepted", { answer });
       }
     });
+    socket.on("call-timeout", ({ toUserId }) => {
+      const receiverSocketId = getReceiverSocketId(toUserId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("call-ended");
+      }
+    });
 
     // ICE candidates exchange (connection establish karne ke liye zaroori)
     socket.on("ice-candidate", ({ toUserId, candidate }) => {
