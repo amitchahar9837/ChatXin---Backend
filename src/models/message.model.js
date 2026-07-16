@@ -6,13 +6,11 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     receiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     text: {
       type: String,
@@ -27,11 +25,19 @@ const messageSchema = new mongoose.Schema(
       default: "sent",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-// Conversation ke messages fetch karna sabse common query hai — compound index
+// Conversation ke messages fetch karna (getMessages) — sabse common query
 messageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+messageSchema.index({ receiverId: 1, senderId: 1, createdAt: -1 });
+
+// Sidebar aggregation ke liye (har user ke saare conversations)
+messageSchema.index({ senderId: 1, createdAt: -1 });
+messageSchema.index({ receiverId: 1, createdAt: -1 });
+
+// Undelivered/unseen messages dhoondne ke liye (status filter ke saath)
+messageSchema.index({ receiverId: 1, status: 1 });
 
 const Message = mongoose.model("Message", messageSchema);
 export default Message;

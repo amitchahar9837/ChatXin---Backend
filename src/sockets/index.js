@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { env } from "../config/env.js";
+import Message from "../models/message.model.js";
 
 let io;
 const userSocketMap = new Map(); // userId -> socketId
@@ -14,6 +15,23 @@ export const initSocket = (httpServer) => {
     if (userId) userSocketMap.set(userId, socket.id);
 
     io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
+
+    socket.on("markSeen", async ({ messageIds, senderId }) => {
+      console.log(messageIds, senderId);
+      if (!messageIds?.length) return;
+
+      await Message.updateMany(
+        { _id: { $in: messageIds } },
+        { $set: { status: "seen" } },
+      );
+
+      const senderSocketId = getReceiverSocketId(senderId);
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("messagesSeen", {
+          messageIds,
+        });
+      }
+    });
 
     socket.on("typing", ({ receiverId, senderId }) => {
       const receiverSocketId = userSocketMap.get(receiverId);
@@ -36,9 +54,7 @@ export const initSocket = (httpServer) => {
 
     // ----------video call signaling events ----------------
     socket.on("call-user", ({ toUserId, offer, fromUserId, callerInfo }) => {
-      console.log("Backend: call-user from", fromUserId, "to", toUserId);
-      const targetSocketId = getReceiverSocketId(toUserId); // ✅ fixed
-      console.log("Target socket id:", targetSocketId);
+      const targetSocketId = getReceiverSocketId(toUserId);
       if (targetSocketId) {
         io.to(targetSocketId).emit("incoming-call", {
           fromUserId,

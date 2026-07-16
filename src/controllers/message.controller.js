@@ -11,18 +11,72 @@ import { getIO, getReceiverSocketId } from "../sockets/index.js";
 export const getUsersForSidebar = asyncHandler(async (req, res) => {
   const loggedInUserId = req.user._id;
 
-  const messages = await Message.find({
-    $or: [{ senderId: loggedInUserId }, { receiverId: loggedInUserId }],
-  })
-    .sort({ createdAt: -1 })
-    .populate("senderId", "fullName profilePic")
-    .populate("receiverId", "fullName profilePic");
+  // 👇 Aggregation se seedha "per-conversation latest message + unread count" nikalte hain
+  // Poori message history load nahi karni padti — ye sabse bada speed fix hai
+  const chats = await Message.aggregate([
+    {
+      $match: {
+        $or: [{ senderId: loggedInUserId }, { receiverId: loggedInUserId }],
+      },
+    },
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: {
+          $cond: [
+            { $eq: ["$senderId", loggedInUserId] },
+            "$receiverId",
+            "$senderId",
+          ],
+        },
+        lastMessage: { $first: "$$ROOT" },
+        unreadCount: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ["$receiverId", loggedInUserId] },
+                  { $ne: ["$status", "seen"] },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+    },
+    { $sort: { "lastMessage.createdAt": -1 } },
+  ]);
 
-  // Mujhe bheje gaye messages jo abhi tak "sent" hain, unhe "delivered" mark karo
-  // (kyunki main abhi online hoon aur API hit kar raha hoon)
-  const undelivered = messages.filter(
-    (msg) => msg.receiverId._id.equals(loggedInUserId) && msg.status === "sent",
-  );
+  // Otherwise chats me sirf otherUserId hai, unke fullName/profilePic ek hi query me le lo
+  const otherUserIds = chats.map((c) => c._id);
+  const users = await User.find({ _id: { $in: otherUserIds } })
+    .select("fullName profilePic")
+    .lean();
+
+  const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+  const chatList = chats
+    .map((c) => {
+      const user = userMap.get(c._id.toString());
+      if (!user) return null; // deleted user safety check
+      return {
+        user,
+        lastMessage: c.lastMessage,
+        unreadCount: c.unreadCount,
+      };
+    })
+    .filter(Boolean);
+
+  // Mujhe bheje gaye "sent" status wale messages ko "delivered" mark karo
+  // (lightweight query — sirf _id aur senderId chahiye, poora document nahi)
+  const undelivered = await Message.find({
+    receiverId: loggedInUserId,
+    status: "sent",
+  })
+    .select("_id senderId")
+    .lean();
 
   if (undelivered.length > 0) {
     const undeliveredIds = undelivered.map((msg) => msg._id);
@@ -31,10 +85,9 @@ export const getUsersForSidebar = asyncHandler(async (req, res) => {
       { $set: { status: "delivered" } },
     );
 
-    // Har sender ko batao unka message deliver ho gaya
     const io = getIO();
     undelivered.forEach((msg) => {
-      const senderSocketId = getReceiverSocketId(msg.senderId._id.toString());
+      const senderSocketId = getReceiverSocketId(msg.senderId.toString());
       if (senderSocketId) {
         io.to(senderSocketId).emit("messageStatusUpdate", {
           messageId: msg._id,
@@ -44,51 +97,40 @@ export const getUsersForSidebar = asyncHandler(async (req, res) => {
     });
   }
 
-  // Conversation list banao — ek entry per unique user, sorted by last message time
-  const chatMap = new Map();
-  messages.forEach((msg) => {
-    const otherUser = msg.senderId._id.equals(loggedInUserId)
-      ? msg.receiverId
-      : msg.senderId;
-    const key = otherUser._id.toString();
-
-    // messages already createdAt desc sorted hain, isliye pehli entry hi latest hai
-    if (!chatMap.has(key)) {
-      chatMap.set(key, { user: otherUser, lastMessage: msg, unreadCount: 0 });
-    }
-
-    // Unread count: mujhe bheja gaya aur abhi "seen" nahi hua
-    const isUnseenIncoming =
-      msg.receiverId._id.equals(loggedInUserId) && msg.status !== "seen";
-    if (isUnseenIncoming) {
-      chatMap.get(key).unreadCount += 1;
-    }
-  });
-
-  // Map insertion order already latest-first hai (kyunki messages desc sorted the)
-  const chatList = Array.from(chatMap.values());
-
   return res.status(200).json(new ApiResponse(200, { chats: chatList }));
 });
 
-// ── Conversation ke saare messages, aur unhe "seen" mark karo ──
+// ── Conversation ke messages, cursor-based pagination ke saath ──
 export const getMessages = asyncHandler(async (req, res) => {
   const { id: otherUserId } = req.params;
   const myId = req.user._id;
+  const { before, limit = 30 } = req.query; // 👈 pagination params
 
   if (!mongoose.Types.ObjectId.isValid(otherUserId)) {
     throw new ApiError(400, "Invalid user id");
   }
 
-  const messages = await Message.find({
+  const query = {
     $or: [
       { senderId: myId, receiverId: otherUserId },
       { senderId: otherUserId, receiverId: myId },
     ],
-  }).sort({ createdAt: 1 });
+  };
 
-  // Dusre user ne mujhe jo bhi messages bheje the aur abhi "seen" nahi the, unhe seen karo
-  const unseenIds = messages
+  // "before" diya hai to sirf usse purane messages lao (infinite scroll pagination)
+  if (before && mongoose.Types.ObjectId.isValid(before)) {
+    query._id = { $lt: new mongoose.Types.ObjectId(before) };
+  }
+
+  const messages = await Message.find(query)
+    .sort({ createdAt: -1 }) // latest pehle nikalte hain
+    .limit(Number(limit))
+    .lean();
+
+  const orderedMessages = messages.reverse(); // UI ke liye oldest-to-newest order
+
+  // Dusre user ne mujhe jo bhi messages bheje the aur "seen" nahi the, unhe seen karo
+  const unseenIds = orderedMessages
     .filter(
       (msg) =>
         msg.receiverId.toString() === myId.toString() && msg.status !== "seen",
@@ -111,13 +153,16 @@ export const getMessages = asyncHandler(async (req, res) => {
     }
   }
 
-  return res.status(200).json(new ApiResponse(200, { messages }));
+  const hasMore = messages.length === Number(limit);
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { messages: orderedMessages, hasMore }));
 });
 
 // ── Naya message bhejo ──
 export const sendMessage = asyncHandler(async (req, res) => {
   const { text, image } = req.body;
-  console.log(image);
   const { id: receiverId } = req.params;
   const senderId = req.user._id;
 
@@ -128,9 +173,9 @@ export const sendMessage = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Cannot send a message to yourself");
   }
 
-  const receiver = await User.findById(receiverId).select(
-    "fullName profilePic",
-  );
+  const receiver = await User.findById(receiverId)
+    .select("fullName profilePic")
+    .lean();
   if (!receiver) throw new ApiError(404, "Receiver not found");
 
   let imageUrl;
@@ -141,7 +186,6 @@ export const sendMessage = asyncHandler(async (req, res) => {
     imageUrl = uploadResponse.secure_url;
   }
 
-  // Receiver abhi online hai toh seedha "delivered" set kar do
   const receiverSocketId = getReceiverSocketId(receiverId);
 
   const newMessage = await Message.create({

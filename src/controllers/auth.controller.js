@@ -62,7 +62,6 @@ export const login = asyncHandler(async (req, res) => {
     );
 
   const { refreshToken } = setAuthCookies(res, existUser._id);
-  console.log(refreshToken);
   existUser.refreshToken = refreshToken;
   await existUser.save({ validateBeforeSave: false });
 
