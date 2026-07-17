@@ -7,7 +7,7 @@ cp .env.example .env   # values fill karo
 npm run dev
 ```
 
-## Kya fix/naya hua (purane code se)
+## What's New
 
 - **Error handling**: `errorHandler(res, error.statusCode, ...)` pattern hata diya — ab `ApiError` class + global `errorMiddleware` hai jo Mongoose validation, duplicate-key, aur JWT errors ko bhi automatically handle karta hai. Pehle generic errors mein `statusCode` undefined hota tha.
 - **Validation**: Manual if-else chains hata ke Zod schemas + `validate` middleware.
@@ -31,7 +31,7 @@ src/
 └── utils/        # ApiError, ApiResponse, asyncHandler, tokens
 ```
 
-## Next (agle phase mein banega)
+## Controllers
 - `message.controller.js` + `message.routes.js` (send/get, typing, read receipts via socket)
 - `search.controller.js` (bug-fixed version of purane searchEverything)
 - Frontend: Tailwind design system + Redux slices update (naye `/refresh` flow ke hisaab se axios interceptor)
