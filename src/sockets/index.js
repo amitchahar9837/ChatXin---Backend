@@ -17,7 +17,6 @@ export const initSocket = (httpServer) => {
     io.emit("getOnlineUsers", Array.from(userSocketMap.keys()));
 
     socket.on("markSeen", async ({ messageIds, senderId }) => {
-      console.log(messageIds, senderId);
       if (!messageIds?.length) return;
 
       await Message.updateMany(
