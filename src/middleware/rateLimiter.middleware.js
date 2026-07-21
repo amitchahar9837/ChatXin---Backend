@@ -1,7 +1,7 @@
 import rateLimit from "express-rate-limit";
 
 export const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,
+  windowMs: 1 * 60 * 1000,
   max: 10,
   handler: (req, res, next) => {
     res.status(429).json({
@@ -14,7 +14,7 @@ export const authLimiter = rateLimit({
 });
 
 export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 5 * 60 * 1000,
   max: 300,
   handler: (req, res, next) => {
     res.status(429).json({
