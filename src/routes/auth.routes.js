@@ -15,6 +15,12 @@ import {
   signupSchema,
   updateProfileSchema,
 } from "../validators/auth.validator.js";
+import {
+  loginMobile,
+  logoutMobile,
+  refreshAccessTokenMobile,
+  signupMobile,
+} from "../controllers/auth.mobile.controller.js";
 
 const router = express.Router();
 
@@ -29,5 +35,15 @@ router.put(
   updateProfile,
 );
 router.get("/check", protectedRoute, checkAuth);
+
+router.post(
+  "/mobile/signup",
+  authLimiter,
+  validate(signupSchema),
+  signupMobile,
+);
+router.post("/mobile/login", authLimiter, validate(loginSchema), loginMobile);
+router.post("/mobile/refresh", refreshAccessTokenMobile);
+router.post("/mobile/logout", protectedRoute, logoutMobile);
 
 export default router;

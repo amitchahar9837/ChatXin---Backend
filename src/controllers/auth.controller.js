@@ -11,7 +11,7 @@ import {
 } from "../utils/generateTokens.js";
 import { env } from "../config/env.js";
 
-const sanitizeUser = (user) => {
+export const sanitizeUser = (user) => {
   const obj = user.toObject();
   delete obj.password;
   delete obj.refreshToken;
